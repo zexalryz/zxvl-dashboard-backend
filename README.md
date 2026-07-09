@@ -26,6 +26,7 @@ A **standardized REST API** for user authentication, built as a starter template
 | Feature | Status |
 |---------|--------|
 | Registration via single‑use invite codes | ✅ |
+| Invite code generation (Admin / Moderator) | ✅ |
 | JWT access tokens (short‑lived) | ✅ |
 | Refresh token rotation (UUID + DB storage) | ✅ |
 | Role‑Based Access Control (Admin / Moderator / Donator / User) | ✅ |
@@ -34,7 +35,7 @@ A **standardized REST API** for user authentication, built as a starter template
 | Multi‑database support (5 providers) | ✅ |
 | Swagger / OpenAPI docs | ✅ |
 | Docker Compose (NestJS + PostgreSQL) | ✅ |
-| E2E test suite (20 tests) | ✅ |
+| E2E test suite (28 tests) | ✅ |
 
 ---
 
@@ -81,7 +82,7 @@ Endpoints are organized under two tags in the Swagger UI:
 
 | Tag | Endpoints | Auth |
 |-----|-----------|------|
-| **Authentication** | `POST /auth/register` · `POST /auth/login` · `POST /auth/refresh` · `POST /auth/logout` | All `@Public()` — no token needed |
+| **Authentication** | `POST /auth/register` · `POST /auth/login` · `POST /auth/refresh` · `POST /auth/logout` · `POST /auth/invite-codes` | Register/login/refresh/logout are `@Public()` — no token needed; `invite-codes` requires `ADMIN` or `MODERATOR` role + Bearer token |
 | **Users** | `GET /user/profile` · `GET /user` · `PATCH /user/:id/role` | Bearer token required; list & role endpoints restricted to `ADMIN` |
 
 ### Authorize button 🔑
@@ -241,6 +242,30 @@ Revoke a refresh token immediately.
 
 ---
 
+### `POST /api/auth/invite-codes` <sub>🔒 ADMIN / MODERATOR</sub>
+Generate one or more single-use invite codes. Requires `ADMIN` or `MODERATOR` role.
+
+**Request**
+```json
+{ "count": 1 }
+```
+
+| Field | Type | Default | Rules |
+|-------|------|---------|-------|
+| `count` | integer (optional) | `1` | 1–10 |
+
+**Response `201`**
+```json
+{
+  "success": true,
+  "data": { "codes": ["INVITE-A1B2C3D4E5F6G7H8"] },
+  "message": "Created",
+  "timestamp": "2026-07-09T12:00:00.000Z"
+}
+```
+
+---
+
 ### `GET /api/user/profile`
 Requires `Authorization: Bearer <accessToken>`.
 
@@ -273,8 +298,8 @@ Change a user's role.
 
 | Role | Tag | Permissions |
 |------|-----|-------------|
-| `ADMIN` | 🔒 | List users · Update roles |
-| `MODERATOR` | 🛡 | *(future moderate endpoints)* |
+| `ADMIN` | 🔒 | List users · Update roles · Generate invite codes |
+| `MODERATOR` | 🛡 | Generate invite codes |
 | `DONATOR` | ⭐ | (same as USER) |
 | `USER` | 👤 | Profile, login, refresh |
 
@@ -353,7 +378,7 @@ npm run docker:down         # stop everything
 npm run test:e2e
 ```
 
-20 tests covering registration, login, refresh‑token rotation, logout, RBAC enforcement, validation, and duplicate‑detection. A dedicated `test.db` is used and automatically cleaned up.
+28 tests covering registration, login, refresh‑token rotation, logout, invite‑code generation, RBAC enforcement, validation, and duplicate‑detection. A dedicated `test.db` is used and automatically cleaned up.
 
 ---
 
