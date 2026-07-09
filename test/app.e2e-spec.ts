@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
 import { execSync } from 'child_process';
 import { existsSync, unlinkSync } from 'fs';
@@ -432,5 +433,68 @@ describe('Auth API (e2e)', () => {
       .send({ count: 11 })
       .expect(400);
     expect(res.body.success).toBe(false);
+  });
+
+  // ─── Token Security ─────────────────────────────────────
+
+  it('POST /api/auth/refresh — rejects expired refresh token', async () => {
+    const user = await prisma.user.findFirst({ where: { username: 'alice' } });
+    expect(user).toBeDefined();
+
+    await prisma.refreshToken.create({
+      data: {
+        token: 'expired-test-token-for-e2e',
+        userId: user!.id,
+        expiresAt: new Date(Date.now() - 86400000), // 1 day ago
+      },
+    });
+
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .send({ refreshToken: 'expired-test-token-for-e2e' })
+      .expect(401);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.message).toMatch(/invalid|expired/i);
+  });
+
+  it('GET /api/user/profile — rejects JWT with non-existent user (tampered)', async () => {
+    const jwtService = app.get(JwtService);
+    const fakeToken = jwtService.sign({ sub: 'nonexistent-user-id', username: 'fake', role: 'ADMIN' });
+
+    const res = await request(app.getHttpServer())
+      .get('/api/user/profile')
+      .set('Authorization', `Bearer ${fakeToken}`)
+      .expect(401);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.message).toMatch(/user not found/i);
+  });
+
+  // ─── Error Response Contract ────────────────────────────
+
+  it('error responses include success, error.code, error.message, timestamp', async () => {
+    // 401 — missing token
+    const r1 = await request(app.getHttpServer()).get('/api/user/profile').expect(401);
+    expect(r1.body).toMatchObject({ success: false, error: { code: expect.any(String), message: expect.any(String) } });
+    expect(typeof r1.body.timestamp).toBe('string');
+
+    // 400 — validation
+    const r2 = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({ username: 'ab', email: 'x', password: '', inviteCode: '' })
+      .expect(400);
+    expect(r2.body).toMatchObject({ success: false, error: { code: expect.any(String), message: expect.any(String) } });
+    expect(typeof r2.body.timestamp).toBe('string');
+
+    // 403 — forbidden (DONATOR trying admin endpoint)
+    const donorLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ username: 'donor', password: 'Donor1234' })
+      .expect(201);
+    const r3 = await request(app.getHttpServer())
+      .get('/api/user')
+      .set('Authorization', `Bearer ${donorLogin.body.data.accessToken}`)
+      .expect(403);
+    expect(r3.body).toMatchObject({ success: false, error: { code: expect.any(String), message: expect.any(String) } });
+    expect(typeof r3.body.timestamp).toBe('string');
   });
 });

@@ -19,7 +19,8 @@ async function bootstrap() {
   const port = config.get<number>('API_PORT', 4000);
 
   app.setGlobalPrefix('api');
-  app.enableCors();
+  app.enableCors({ origin: config.get<string>('CORS_ORIGIN', '*'), credentials: true });
+  app.enableShutdownHooks();
 
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),

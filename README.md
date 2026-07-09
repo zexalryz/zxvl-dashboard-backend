@@ -35,7 +35,7 @@ A **standardized REST API** for user authentication, built as a starter template
 | Multi‑database support (5 providers) | ✅ |
 | Swagger / OpenAPI docs | ✅ |
 | Docker Compose (NestJS + PostgreSQL) | ✅ |
-| E2E test suite (28 tests) | ✅ |
+| E2E test suite (31 tests) | ✅ |
 
 ---
 
@@ -347,7 +347,8 @@ npm run dev | npx pino-pretty
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `API_PORT` | `4000` | HTTP port |
-| `NODE_ENV` | `development` | Environment |
+| `NODE_ENV` | `development` | Environment (controls `entrypoint.sh` behavior — production uses `migrate deploy`, dev uses `db push` + seed) |
+| `CORS_ORIGIN` | `*` | Allowed CORS origin (set to your frontend URL in production, e.g. `https://app.example.com`) |
 | `DATABASE_URL` | `file:./dev.db` | Prisma datasource URL |
 | `JWT_SECRET` | `dev-secret-123` | HMAC secret for access tokens |
 | `JWT_EXPIRATION` | `15m` | Access token TTL (ms‑format, e.g. `15m`, `1h`) |
@@ -378,7 +379,7 @@ npm run docker:down         # stop everything
 npm run test:e2e
 ```
 
-28 tests covering registration, login, refresh‑token rotation, logout, invite‑code generation, RBAC enforcement, validation, and duplicate‑detection. A dedicated `test.db` is used and automatically cleaned up.
+31 tests covering registration, login, refresh‑token rotation (incl. expired + revoked), logout, invite‑code generation, RBAC enforcement (incl. tampered JWT), validation, duplicate‑detection, and error‑response shape contract. A dedicated `test.db` is used and automatically cleaned up.
 
 ---
 

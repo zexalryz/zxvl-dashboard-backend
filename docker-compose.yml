@@ -28,6 +28,7 @@ services:
     environment:
       NODE_ENV: production
       API_PORT: 4000
+      CORS_ORIGIN: http://localhost:3000
       DATABASE_URL: postgresql://auth_user:auth_pass@db:5432/auth_api
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       JWT_EXPIRATION: 15m
