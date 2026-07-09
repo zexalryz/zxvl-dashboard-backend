@@ -1,9 +1,12 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Role } from '../common/constants/role';
+import { Roles } from '../common/decorators/roles.decorator';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { GenerateInviteDto } from './dto/generate-invite.dto';
 import { Public } from './public.decorator';
 
 @ApiTags('Authentication')
@@ -49,5 +52,15 @@ export class AuthController {
   })
   logout(@Body() dto: RefreshDto) {
     return this.auth.logout(dto);
+  }
+
+  @Post('invite-codes')
+  @Roles(Role.ADMIN, Role.MODERATOR)
+  @ApiOperation({
+    summary: 'Generate invite codes',
+    description: '🔒 **Admin or Moderator only.** Generate one or more single-use invite codes for user registration. Provide an optional `count` (1–10, default 1) to batch-create codes. The generated codes can be used at `/auth/register`.',
+  })
+  generateInviteCodes(@Body() dto: GenerateInviteDto) {
+    return this.auth.generateInviteCodes(dto.count ?? 1);
   }
 }

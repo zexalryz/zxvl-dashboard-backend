@@ -329,4 +329,108 @@ describe('Auth API (e2e)', () => {
       .expect(403);
     expect(res.body.success).toBe(false);
   });
+
+  // ─── Invite Code Generation ──────────────────────────────
+
+  it('POST /api/auth/invite-codes — admin generates 1 invite code', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/invite-codes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({})
+      .expect(201);
+    expect(res.body.success).toBe(true);
+    const { codes } = res.body.data;
+    expect(Array.isArray(codes)).toBe(true);
+    expect(codes).toHaveLength(1);
+    expect(codes[0]).toMatch(/^INVITE-/);
+  });
+
+  it('POST /api/auth/invite-codes — admin generates batch (3 codes)', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/invite-codes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ count: 3 })
+      .expect(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.codes).toHaveLength(3);
+    res.body.data.codes.forEach((c: string) => expect(c).toMatch(/^INVITE-/));
+  });
+
+  it('POST /api/auth/invite-codes — moderator can generate', async () => {
+    const modLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ username: 'mod', password: 'Mod1234' })
+      .expect(201);
+    const modToken = modLogin.body.data.accessToken;
+
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/invite-codes')
+      .set('Authorization', `Bearer ${modToken}`)
+      .send({})
+      .expect(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.codes).toHaveLength(1);
+  });
+
+  it('POST /api/auth/invite-codes — user (DONATOR) receives 403', async () => {
+    const donorLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ username: 'donor', password: 'Donor1234' })
+      .expect(201);
+    const donorToken = donorLogin.body.data.accessToken;
+
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/invite-codes')
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({})
+      .expect(403);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('POST /api/auth/invite-codes — rejects unauthenticated requests', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/invite-codes')
+      .send({})
+      .expect(401);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('POST /api/auth/invite-codes — generated code can be used to register', async () => {
+    const genRes = await request(app.getHttpServer())
+      .post('/api/auth/invite-codes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ count: 1 })
+      .expect(201);
+    const newCode = genRes.body.data.codes[0];
+
+    const regRes = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({
+        username: 'invite_test_user',
+        email: 'invite-test@test.com',
+        password: 'Str0ng!Pass',
+        inviteCode: newCode,
+      })
+      .expect(201);
+    expect(regRes.body.success).toBe(true);
+    expect(regRes.body.data.accessToken).toBeDefined();
+  });
+
+  it('POST /api/auth/invite-codes — rejects count 0', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/invite-codes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ count: 0 })
+      .expect(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('POST /api/auth/invite-codes — rejects count > 10', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/invite-codes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ count: 11 })
+      .expect(400);
+    expect(res.body.success).toBe(false);
+  });
 });

@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   Injectable,
   ConflictException,
@@ -70,6 +71,16 @@ export class AuthService {
   async logout(dto: RefreshDto) {
     await this.tokens.revokeRefreshToken(dto.refreshToken);
     return { message: 'Logged out' };
+  }
+
+  async generateInviteCodes(count: number = 1): Promise<{ codes: string[] }> {
+    const codes: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const code = `INVITE-${randomBytes(8).toString('hex').toUpperCase()}`;
+      await this.prisma.inviteCode.create({ data: { code } });
+      codes.push(code);
+    }
+    return { codes };
   }
 
   private async generateTokens(user: { id: string; username: string; role: string }) {
