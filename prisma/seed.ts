@@ -31,7 +31,21 @@ async function main() {
     });
   }
 
-  console.log(`Seeded ${users.length} users and ${codes.length} invite codes`);
+  // Seed default tools
+  const tools = [
+    { slug: 'rest-api-tester', name: 'REST API Tester', description: 'Send HTTP requests and inspect responses — like Postman or Burp Suite', icon: '🧪' },
+    { slug: 'guitar-chord-generator', name: 'Guitar Chord Generator', description: 'Generate guitar chord diagrams from chord names', icon: '🎸' },
+  ];
+
+  for (const t of tools) {
+    await prisma.tool.upsert({
+      where: { slug: t.slug },
+      update: { name: t.name, description: t.description, icon: t.icon, enabled: true },
+      create: { ...t, enabled: false },
+    });
+  }
+
+  console.log(`Seeded ${users.length} users, ${codes.length} invite codes, and ${tools.length} tools`);
 }
 
 main()

@@ -10,6 +10,8 @@ import { UserModule } from './user/user.module';
 import { HealthModule } from './health/health.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { ActivityModule } from './activity/activity.module';
+import { ForumModule } from './forum/forum.module';
+import { ToolsModule } from './tools/tools.module';
 
 @Module({
   imports: [
@@ -36,6 +38,8 @@ import { ActivityModule } from './activity/activity.module';
     HealthModule,
     MetricsModule,
     ActivityModule,
+    ForumModule,
+    ToolsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

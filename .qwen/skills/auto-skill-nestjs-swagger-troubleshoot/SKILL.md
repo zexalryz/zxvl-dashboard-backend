@@ -2,7 +2,7 @@
 name: nestjs-swagger-troubleshoot
 description: Systematic checklist for diagnosing why NestJS Swagger UI (/docs) shows a blank/empty page
 source: auto-skill
-extracted_at: '2026-07-09T14:13:00.790Z'
+extracted_at: '2026-07-09T16:16:32.772Z'
 ---
 
 # NestJS Swagger UI — blank page troubleshooting
@@ -76,6 +76,62 @@ If Layers 1–5 all return 200 and content looks valid, the issue is in the user
 4. **Ad/script blockers** — disable for localhost
 5. **Try another browser** — Chrome/Firefox/Edge to isolate
 
+## Layer 7 — Public HTTP endpoint with HTTPS-upgrading browser
+
+When the user accesses the app via **public IP over HTTP** (not localhost), the issue may be **browser auto-upgrading subresource requests to HTTPS**:
+
+### Check
+
+1. DevTools → Console: look for `ERR_SSL_PROTOCOL_ERROR` on `swagger-ui.css`, `swagger-ui-bundle.js`, etc.
+2. DevTools → Network: check scheme of failed requests — should match the page scheme
+3. Look for `Cross-Origin-Opener-Policy header has been ignored, because the URL's origin was untrustworthy`
+4. Check if `Strict-Transport-Security` (HSTS) header is present in response headers
+
+### Fix
+
+The `PUBLIC_URL` env var was added to the codebase for this exact scenario. When set, it:
+
+- **Disables Helmet's HSTS** — prevents browser from remembering "must use HTTPS" for this host
+- **Enables Express `trust proxy`** — respects `X-Forwarded-Proto` and `X-Forwarded-For` headers from the upstream proxy. ⚠️ TypeScript needs `as any` cast: `(app.getHttpAdapter().getInstance() as any).set('trust proxy', 1)` — `INestApplication` doesn't expose `.set()` on its type, but the underlying Express instance does.
+- **Adds a server entry to OpenAPI spec** — Swagger "Try it out" requests hit the correct public HTTPS origin
+- **Configures Swagger's `url` option** — spec JSON loaded from the public HTTPS endpoint instead of the HTTP origin
+
+**Deployment** — for any public-HTTP-to-HTTPS proxy setup:
+
+```bash
+export PUBLIC_URL=https://<your-public-domain>
+npm run start:prod
+```
+
+**Quick tunnel (no domain needed)** — use Cloudflare Tunnel for instant HTTPS:
+
+```bash
+# Install cloudflared
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+chmod +x cloudflared
+
+# Try sudo first; if unavailable, install to ~/.local/bin/
+sudo mv cloudflared /usr/local/bin/cloudflared 2>/dev/null \
+  || { mkdir -p ~/.local/bin && mv cloudflared ~/.local/bin/ && echo "Installed to ~/.local/bin/ — ensure it's on \$PATH"; }
+
+# Start tunnel
+cloudflared tunnel --url http://localhost:5050
+# Output: https://<random-words>.trycloudflare.com
+
+export PUBLIC_URL=https://<random-words>.trycloudflare.com
+npm run start:prod
+```
+
+> ⚠️ **Restart caveat:** `pkill -f "nest start"` also kills `cloudflared` if it was started in the same terminal session. Restart the tunnel after server restart.
+
+### Quick workaround for testing
+
+SSH tunnel from localhost:
+```bash
+ssh -L 5050:localhost:5050 user@<EC2-PUBLIC-IP>
+# Then open http://localhost:5050/docs
+```
+
 ## Common root causes
 
 | Symptom | Likely cause |
@@ -85,6 +141,8 @@ If Layers 1–5 all return 200 and content looks valid, the issue is in the user
 | Init JS missing SwaggerUIBundle call | Corrupted `@nestjs/swagger` install — reinstall |
 | Spec loads but UI empty | All `responses` have empty description — still should render |
 | Everything 200 from curl, user sees blank | Ad blocker, script blocker, browser extension, old cached page |
+| CSS/JS fail with `ERR_SSL_PROTOCOL_ERROR` on public IP | Browser upgrades HTTP subresources to HTTPS — set `PUBLIC_URL` or use HTTPS proxy |
+| Console shows `Cross-Origin-Opener-Policy header ignored` | Public HTTP origin considered "untrustworthy" by browser — set `PUBLIC_URL` |
 
 ## Restoration
 
