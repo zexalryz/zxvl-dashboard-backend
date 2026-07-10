@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://nestjs.com/img/logo-small.svg" width="100" alt="NestJS" />
-  <h1 align="center"><code>⌘ Auth API</code></h1>
+  <h1 align="center"><code>ZXVL Dashboard Backend</code></h1>
 </p>
 
 <p align="center">
